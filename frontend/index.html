@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>PO Scanner</title>
+	<style>
+		:root {
+			color-scheme: light dark;
+			font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+			background: #f6f8fa;
+			color: #1f2328;
+		}
+
+		body {
+			max-width: 960px;
+			margin: 0 auto;
+			padding: 2rem 1.5rem 4rem;
+		}
+
+		header {
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.75rem;
+			margin-bottom: 2rem;
+		}
+
+		h1 {
+			margin: 0;
+			font-size: clamp(2rem, 3vw + 1rem, 2.75rem);
+		}
+
+		header p {
+			margin: 0;
+			font-size: 1rem;
+			color: #5b5f63;
+		}
+
+		form {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.75rem;
+			align-items: center;
+			background: #ffffff;
+			padding: 1rem;
+			border-radius: 12px;
+			box-shadow: 0 12px 30px -15px rgba(15, 23, 42, 0.25);
+		}
+
+		input[type="file"] {
+			flex: 1;
+			height: 44px;
+			padding: 0.5rem;
+			border: 1px dashed #d0d7de;
+			border-radius: 8px;
+			background: #f6f8fa;
+		}
+
+		button {
+			padding: 0.65rem 1.6rem;
+			border-radius: 8px;
+			border: none;
+			background: #0366d6;
+			color: #ffffff;
+			font-weight: 600;
+			cursor: pointer;
+			transition: background 160ms ease;
+		}
+
+		button:hover {
+			background: #024f9c;
+		}
+
+		#status {
+			min-height: 1.5rem;
+			font-size: 0.95rem;
+			color: #5b5f63;
+		}
+
+		.grid {
+			display: grid;
+			gap: 1.25rem;
+			grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+			margin-top: 2rem;
+		}
+
+		.card {
+			background: #ffffff;
+			padding: 1.25rem;
+			border-radius: 12px;
+			border: 1px solid #e1e4e8;
+			box-shadow: 0 12px 30px -18px rgba(15, 23, 42, 0.25);
+			display: flex;
+			flex-direction: column;
+			gap: 0.75rem;
+		}
+
+		.card h2 {
+			margin: 0;
+			font-size: 1.1rem;
+			color: #101828;
+		}
+
+		.card small {
+			color: #5b5f63;
+		}
+
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.35rem;
+			background: rgba(3, 102, 214, 0.1);
+			color: #024f9c;
+			padding: 0.35rem 0.75rem;
+			border-radius: 999px;
+			font-size: 0.8rem;
+			font-weight: 600;
+		}
+
+		.item-list {
+			margin: 0;
+			padding-left: 1rem;
+			color: #24292f;
+		}
+
+		.item-list li {
+			margin-bottom: 0.35rem;
+		}
+
+		.empty-state {
+			margin-top: 4rem;
+			text-align: center;
+			color: #5b5f63;
+		}
+
+		@media (max-width: 720px) {
+			form {
+				flex-direction: column;
+				align-items: stretch;
+			}
+
+			button {
+				width: 100%;
+			}
+		}
+	</style>
+</head>
+<body>
+	<header>
+		<h1>Purchase Order Scanner</h1>
+		<p>Upload a PO PDF to parse vendor, purchaser, and line items automatically.</p>
+	</header>
+
+	<form id="upload-form">
+		<input id="file-input" type="file" accept="application/pdf" required />
+		<button type="submit">Upload PDF</button>
+		<div id="status"></div>
+	</form>
+
+	<section id="list-section">
+		<div class="grid" id="orders-grid"></div>
+	</section>
+
+	<div class="empty-state" id="empty-state" hidden>
+		<p>No purchase orders yet. Upload your first PDF to get started.</p>
+	</div>
+
+	<script>
+		const statusEl = document.querySelector('#status');
+		const fileInput = document.querySelector('#file-input');
+		const form = document.querySelector('#upload-form');
+		const grid = document.querySelector('#orders-grid');
+		const emptyState = document.querySelector('#empty-state');
+
+		const currencyFormatter = new Intl.NumberFormat(undefined, {
+			style: 'currency',
+			currency: 'USD',
+		});
+
+		function formatCurrency(value, fallback) {
+			if (typeof value !== 'number' || Number.isNaN(value))
+				return fallback;
+			return currencyFormatter.format(value);
+		}
+
+		function formatDate(value) {
+			if (!value)
+				return '—';
+			return new Date(value).toLocaleString();
+		}
+
+		function renderOrders(orders) {
+			grid.innerHTML = '';
+			if (!orders.length) {
+				emptyState.hidden = false;
+				return;
+			}
+
+			emptyState.hidden = true;
+			for (const order of orders) {
+				const card = document.createElement('article');
+				card.className = 'card';
+				card.innerHTML = `
+					<div>
+						<h2>${order.vendor?.name ?? 'Unknown vendor'}</h2>
+						<small>${order.vendor?.address ?? ''}</small>
+					</div>
+					<div>
+						<span class="badge">Total ${formatCurrency(order.total, '—')}</span>
+						<small>Issued ${order.issueDate ?? 'n/a'} · Received ${formatDate(order.createdAt)}</small>
+					</div>
+					<div>
+						<strong>Purchaser:</strong>
+						<div>${order.purchaser?.name ?? 'Unknown buyer'}</div>
+						<small>${order.purchaser?.address ?? ''}</small>
+					</div>
+					<div>
+						<strong>Items:</strong>
+						<ul class="item-list">
+							${(order.items ?? []).map((item) => `
+								<li>
+									${item.quantity ?? '?'} × ${item.name ?? 'Unnamed'} @ ${formatCurrency(item.unitPrice, 'n/a')}
+								</li>
+							`).join('')}
+						</ul>
+					</div>
+				`;
+				grid.appendChild(card);
+			}
+		}
+
+		async function fetchOrders() {
+			statusEl.textContent = 'Refreshing list…';
+			try {
+				const response = await fetch('/api/purchase-orders');
+				if (!response.ok)
+					throw new Error('Failed to fetch purchase orders');
+				const data = await response.json();
+				renderOrders(Array.isArray(data) ? data : []);
+				statusEl.textContent = '';
+			} catch (error) {
+				console.error(error);
+				statusEl.textContent = 'Could not refresh purchase orders.';
+			}
+		}
+
+		form.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			if (!fileInput.files?.length) {
+				statusEl.textContent = 'Choose a PDF to upload.';
+				return;
+			}
+
+			const formData = new FormData();
+			formData.append('file', fileInput.files[0]);
+
+			statusEl.textContent = 'Uploading…';
+			try {
+				const response = await fetch('/api/purchase-orders/upload', {
+					method: 'POST',
+					body: formData,
+				});
+
+				if (!response.ok) {
+					const payload = await response.json().catch(() => ({}));
+					throw new Error(payload.message ?? 'Upload failed');
+				}
+
+				statusEl.textContent = 'Upload complete!';
+				fileInput.value = '';
+				await fetchOrders();
+			} catch (error) {
+				console.error(error);
+				statusEl.textContent = error?.message ?? 'Upload failed.';
+			}
+		});
+
+		fetchOrders();
+	</script>
+</body>
+</html>
