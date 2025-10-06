@@ -34,4 +34,5 @@ export interface PurchaseOrderRecord extends PurchaseOrderCore {
 	createdAt: Date;
 	sourceFileName: string;
 	rawText: string;
+	updatedAt?: Date;
 }

@@ -3,6 +3,7 @@ import multer from 'multer';
 import {
 	listPurchaseOrders,
 	processPurchaseOrder,
+	updatePurchaseOrder,
 } from '../services/purchaseOrderService.ts';
 
 const upload = multer({
@@ -39,6 +40,24 @@ purchaseOrdersRouter.post(
 			});
 
 			res.status(201).json(record);
+		} catch (error) {
+			next(error);
+		}
+	},
+);
+
+purchaseOrdersRouter.patch(
+	'/:id',
+	async (req: any, res: any, next: any) => {
+		try {
+			const { id } = req.params ?? {};
+			if (!id) {
+				res.status(400).json({ message: 'Purchase order id is required.' });
+				return;
+			}
+
+			const record = await updatePurchaseOrder(id, req.body);
+			res.json(record);
 		} catch (error) {
 			next(error);
 		}
